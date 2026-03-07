@@ -1,6 +1,6 @@
-import { Address, BigInt, BigDecimal, Bytes } from '@graphprotocol/graph-ts'
+import { Address, BigInt, BigDecimal } from '@graphprotocol/graph-ts'
 import { LOG_NEW_POOL } from '../types/Factory/Factory'
-import { Tidalx, Pool, PoolShare } from '../types/schema'
+import { Tidalx, Pool } from '../types/schema'
 import { Pool as PoolContract, CrpController as CrpControllerContract } from '../types/templates'
 import {
   ZERO_BD,
@@ -10,8 +10,6 @@ import {
   getCrpName,
   getCrpRights,
   getCrpCap,
-  createPoolShareEntity,
-  bigIntToDecimal,
   normalizeUserAddress
 } from './helpers'
 import { ConfigurableRightsPool } from '../types/Factory/ConfigurableRightsPool';
@@ -79,28 +77,6 @@ export function handleNewPool(event: LOG_NEW_POOL): void {
   pool.tokensOriginalList = []
   pool.tx = event.transaction.hash
   pool.save()
-
-  // Seed current CRP controller share balance so we don't start from zero and go negative
-  if (pool.crpController !== null) {
-    let holder = Address.fromString((pool.crpController as Bytes).toHexString())
-    let shareId = pool.id.concat('-').concat(holder.toHex())
-    let balCall = crp.try_balanceOf(holder)
-    if (!balCall.reverted) {
-      let bal = bigIntToDecimal(balCall.value, 18)
-      if (bal.gt(ZERO_BD)) {
-        createPoolShareEntity(shareId, pool.id, holder.toHex())
-        let share = PoolShare.load(shareId)
-        if (share != null) {
-          share.balance = bal
-          share.userBalance = bal
-          share.save()
-        }
-        pool.holdersCount = pool.holdersCount.plus(BigInt.fromI32(1))
-        pool.totalShares = bal
-        pool.save()
-      }
-    }
-  }
 
   factory.poolCount = factory.poolCount + 1
   factory.save()

@@ -29,7 +29,8 @@ import {
   Transfer as SmartPoolTransfer, 
   LogJoin, 
   LogExit,
-  LogCall
+  LogCall,
+  CapChanged
 } from '../types/Factory/ConfigurableRightsPool'
 
 /************************************
@@ -76,6 +77,17 @@ export function handleSetCrpController(event: OwnershipTransferred): void {
     event.address = Address.fromString(pool.id)
     saveTransaction(event, 'setCrpController')
   }
+}
+
+export function handleCapChanged(event: CapChanged): void {
+  let crp = ConfigurableRightsPool.bind(event.address)
+  let poolIdMaybe = getCrpUnderlyingPool(crp)
+  if (poolIdMaybe == null) return
+  let poolId = poolIdMaybe as string
+  let pool = Pool.load(poolId)
+  if (pool == null) return
+  pool.cap = event.params.newCap
+  pool.save()
 }
 
 export function handleSetManagerFee(event: LogCall): void {
@@ -538,88 +550,62 @@ export function handleSmartTransfer(event: SmartPoolTransfer): void {
   let fromNormalized = (isMint || fromAddress.toHex() == self) ? fromAddress : normalizeUserAddress(fromAddress)
   let toNormalized = (isBurn || toAddress.toHex() == self) ? toAddress : normalizeUserAddress(toAddress)
 
-  let poolShareFromId = poolId.concat('-').concat(fromNormalized.toHex())
-  let poolShareFrom = PoolShare.load(poolShareFromId)
-  let poolShareFromBalance = poolShareFrom == null ? ZERO_BD : poolShareFrom.balance
-
-  let poolShareToId = poolId.concat('-').concat(toNormalized.toHex())
-  let poolShareTo = PoolShare.load(poolShareToId)
-  let poolShareToBalance = poolShareTo == null ? ZERO_BD : poolShareTo.balance
-
   let pool = Pool.load(poolId)
-  if(pool != null) {
-    if (isMint) {
-      // Ignore internal mint to CRP itself; only track external holders.
-      if (toAddress.toHex() != self) {
-        if (poolShareTo == null) {
-          createPoolShareEntity(poolShareToId, poolId, toNormalized.toHex())
-          poolShareTo = PoolShare.load(poolShareToId)!
-        }
-        poolShareTo.balance += tokenToDecimal(event.params.value.toBigDecimal(), 18)
-        if (poolShareTo.balance.equals(ZERO_BD)) {
-          store.remove('PoolShare', poolShareToId)
-        } else {
-          poolShareTo.save()
-        }
-      }
-      pool.totalShares += tokenToDecimal(event.params.value.toBigDecimal(), 18)
-    } else if (isBurn) {
-      // Ignore internal burn from CRP itself.
-      if (fromAddress.toHex() != self) {
-        if (poolShareFrom == null) {
-          createPoolShareEntity(poolShareFromId, poolId, fromNormalized.toHex())
-          poolShareFrom = PoolShare.load(poolShareFromId)!
-        }
-        poolShareFrom.balance -= tokenToDecimal(event.params.value.toBigDecimal(), 18)
-        if (poolShareFrom.balance.equals(ZERO_BD)) {
-          store.remove('PoolShare', poolShareFromId)
-        } else {
-          poolShareFrom.save()
-        }
-      }
-      pool.totalShares -= tokenToDecimal(event.params.value.toBigDecimal(), 18)
-    } else {
-      if (toAddress.toHex() != self) {
-        if (poolShareTo == null) {
-          createPoolShareEntity(poolShareToId, poolId, toNormalized.toHex())
-          poolShareTo = PoolShare.load(poolShareToId)!
-        }
-        poolShareTo.balance += tokenToDecimal(event.params.value.toBigDecimal(), 18)
-        if (poolShareTo.balance.equals(ZERO_BD)) {
-          store.remove('PoolShare', poolShareToId)
-        } else {
-          poolShareTo.save()
-        }
-      }
+  if (pool != null) {
+    // Keep totalShares aligned with on-chain CRP supply to avoid drift from missed/duplicated events.
+    let totalSupplyCall = crp.try_totalSupply()
+    if (!totalSupplyCall.reverted) {
+      pool.totalShares = bigIntToDecimal(totalSupplyCall.value, 18)
+    }
 
-      if (fromAddress.toHex() != self) {
-        if (poolShareFrom == null) {
-          createPoolShareEntity(poolShareFromId, poolId, fromNormalized.toHex())
-          poolShareFrom = PoolShare.load(poolShareFromId)!
-        }
-        poolShareFrom.balance -= tokenToDecimal(event.params.value.toBigDecimal(), 18)
-        if (poolShareFrom.balance.equals(ZERO_BD)) {
-          store.remove('PoolShare', poolShareFromId)
+    // Sync "to" holder balance using on-chain state.
+    if (!isBurn && toAddress.toHex() != self) {
+      let toShareId = poolId.concat('-').concat(toNormalized.toHex())
+      let toShare = PoolShare.load(toShareId)
+      let toPrev = toShare == null ? ZERO_BD : toShare.balance
+      if (toShare == null) {
+        createPoolShareEntity(toShareId, poolId, toNormalized.toHex())
+        toShare = PoolShare.load(toShareId)
+      }
+      let toBalCall = crp.try_balanceOf(toNormalized)
+      if (toShare != null && !toBalCall.reverted) {
+        let toNow = bigIntToDecimal(toBalCall.value, 18)
+        if (toNow.equals(ZERO_BD)) {
+          store.remove('PoolShare', toShareId)
         } else {
-          poolShareFrom.save()
+          toShare.balance = toNow
+          toShare.userBalance = toNow
+          toShare.save()
+        }
+        if (toPrev.equals(ZERO_BD) && toNow.notEqual(ZERO_BD)) {
+          pool.holdersCount = pool.holdersCount.plus(BigInt.fromI32(1))
         }
       }
     }
 
-    if (
-      poolShareTo !== null
-      && poolShareTo.balance.notEqual(ZERO_BD)
-      && poolShareToBalance.equals(ZERO_BD)
-    ) {
-      pool.holdersCount += BigInt.fromI32(1)
-    }
-
-    if (
-      poolShareFrom !== null
-      && poolShareFrom.balance.equals(ZERO_BD)
-      && poolShareFromBalance.notEqual(ZERO_BD)
-    ) {
-      pool.holdersCount -= BigInt.fromI32(1)
+    // Sync "from" holder balance using on-chain state.
+    if (!isMint && fromAddress.toHex() != self) {
+      let fromShareId = poolId.concat('-').concat(fromNormalized.toHex())
+      let fromShare = PoolShare.load(fromShareId)
+      let fromPrev = fromShare == null ? ZERO_BD : fromShare.balance
+      if (fromShare == null) {
+        createPoolShareEntity(fromShareId, poolId, fromNormalized.toHex())
+        fromShare = PoolShare.load(fromShareId)
+      }
+      let fromBalCall = crp.try_balanceOf(fromNormalized)
+      if (fromShare != null && !fromBalCall.reverted) {
+        let fromNow = bigIntToDecimal(fromBalCall.value, 18)
+        if (fromNow.equals(ZERO_BD)) {
+          store.remove('PoolShare', fromShareId)
+        } else {
+          fromShare.balance = fromNow
+          fromShare.userBalance = fromNow
+          fromShare.save()
+        }
+        if (fromPrev.notEqual(ZERO_BD) && fromNow.equals(ZERO_BD)) {
+          pool.holdersCount = pool.holdersCount.minus(BigInt.fromI32(1))
+        }
+      }
     }
 
     pool.save()

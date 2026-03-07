@@ -28,6 +28,8 @@ dataSources:
           file: ./abis/QProxyFactory.json
         - name: QProxy
           file: ./abis/QProxy.json
+        - name: PriceReader
+          file: ./abis/PriceReader.json
       eventHandlers:
         - event: LOG_NEW_POOL(indexed address,indexed address)
           handler: handleNewPool
@@ -62,6 +64,8 @@ templates:
           file: ./abis/QProxyFactory.json
         - name: QProxy
           file: ./abis/QProxy.json
+        - name: PriceReader
+          file: ./abis/PriceReader.json
       eventHandlers:
         - event: LOG_CALL(indexed bytes4,indexed address,bytes)
           topic0: "0x92eefe9b00000000000000000000000000000000000000000000000000000000"
@@ -86,6 +90,8 @@ templates:
           handler: handleSwap
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
+      blockHandlers:
+        - handler: handlePoolBlock
       callHandlers:
         - function: gulp(address)
           handler: handleGulp
@@ -104,12 +110,20 @@ templates:
         - Transaction
         - User
       abis:
+        - name: Pool
+          file: ./abis/BPool.json
+        - name: BToken
+          file: ./abis/BToken.json
+        - name: BTokenBytes
+          file: ./abis/BTokenBytes32.json
         - name: ConfigurableRightsPool
           file: ./abis/ConfigurableRightsPool.json
         - name: QProxyFactory
           file: ./abis/QProxyFactory.json
         - name: QProxy
           file: ./abis/QProxy.json
+        - name: PriceReader
+          file: ./abis/PriceReader.json
       eventHandlers:
         - event: OwnershipTransferred(indexed address,indexed address)
           handler: handleSetCrpController

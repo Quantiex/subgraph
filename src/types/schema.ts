@@ -344,21 +344,17 @@ export class Pool extends Entity {
     this.set("active", Value.fromBoolean(value));
   }
 
-  get managerFee(): BigInt | null {
+  get managerFee(): BigInt {
     let value = this.get("managerFee");
     if (!value || value.kind == ValueKind.NULL) {
-      return null;
+      throw new Error("Cannot return null for a required field.");
     } else {
       return value.toBigInt();
     }
   }
 
-  set managerFee(value: BigInt | null) {
-    if (!value) {
-      this.unset("managerFee");
-    } else {
-      this.set("managerFee", Value.fromBigInt(<BigInt>value));
-    }
+  set managerFee(value: BigInt) {
+    this.set("managerFee", Value.fromBigInt(value));
   }
 
   get swapFee(): BigDecimal {
@@ -437,6 +433,71 @@ export class Pool extends Entity {
 
   set liquidity(value: BigDecimal) {
     this.set("liquidity", Value.fromBigDecimal(value));
+  }
+
+  get lpVolume24h(): BigDecimal {
+    let value = this.get("lpVolume24h");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigDecimal();
+    }
+  }
+
+  set lpVolume24h(value: BigDecimal) {
+    this.set("lpVolume24h", Value.fromBigDecimal(value));
+  }
+
+  get lpFee24h(): BigDecimal {
+    let value = this.get("lpFee24h");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigDecimal();
+    }
+  }
+
+  set lpFee24h(value: BigDecimal) {
+    this.set("lpFee24h", Value.fromBigDecimal(value));
+  }
+
+  get lpApr(): BigDecimal {
+    let value = this.get("lpApr");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigDecimal();
+    }
+  }
+
+  set lpApr(value: BigDecimal) {
+    this.set("lpApr", Value.fromBigDecimal(value));
+  }
+
+  get lpAprWindow(): i32 {
+    let value = this.get("lpAprWindow");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set lpAprWindow(value: i32) {
+    this.set("lpAprWindow", Value.fromI32(value));
+  }
+
+  get lpLastRefreshBlock(): BigInt {
+    let value = this.get("lpLastRefreshBlock");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set lpLastRefreshBlock(value: BigInt) {
+    this.set("lpLastRefreshBlock", Value.fromBigInt(value));
   }
 
   get tokensList(): Array<Bytes> {
@@ -583,6 +644,14 @@ export class Pool extends Entity {
 
   get swaps(): SwapLoader {
     return new SwapLoader("Pool", this.get("id")!.toString(), "swaps");
+  }
+
+  get lpKlinesDay(): PoolLpKlineDayLoader {
+    return new PoolLpKlineDayLoader(
+      "Pool",
+      this.get("id")!.toString(),
+      "lpKlinesDay",
+    );
   }
 }
 
@@ -814,6 +883,385 @@ export class PoolShare extends Entity {
 
   set userBalance(value: BigDecimal) {
     this.set("userBalance", Value.fromBigDecimal(value));
+  }
+}
+
+export class PoolCrpRef extends Entity {
+  constructor(id: string) {
+    super();
+    this.set("id", Value.fromString(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save PoolCrpRef entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.STRING,
+        `Entities of type PoolCrpRef must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("PoolCrpRef", id.toString(), this);
+    }
+  }
+
+  static loadInBlock(id: string): PoolCrpRef | null {
+    return changetype<PoolCrpRef | null>(store.get_in_block("PoolCrpRef", id));
+  }
+
+  static load(id: string): PoolCrpRef | null {
+    return changetype<PoolCrpRef | null>(store.get("PoolCrpRef", id));
+  }
+
+  get id(): string {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set id(value: string) {
+    this.set("id", Value.fromString(value));
+  }
+
+  get crp(): Bytes {
+    let value = this.get("crp");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set crp(value: Bytes) {
+    this.set("crp", Value.fromBytes(value));
+  }
+}
+
+export class PoolLpVolumeHour extends Entity {
+  constructor(id: string) {
+    super();
+    this.set("id", Value.fromString(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save PoolLpVolumeHour entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.STRING,
+        `Entities of type PoolLpVolumeHour must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("PoolLpVolumeHour", id.toString(), this);
+    }
+  }
+
+  static loadInBlock(id: string): PoolLpVolumeHour | null {
+    return changetype<PoolLpVolumeHour | null>(
+      store.get_in_block("PoolLpVolumeHour", id),
+    );
+  }
+
+  static load(id: string): PoolLpVolumeHour | null {
+    return changetype<PoolLpVolumeHour | null>(
+      store.get("PoolLpVolumeHour", id),
+    );
+  }
+
+  get id(): string {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set id(value: string) {
+    this.set("id", Value.fromString(value));
+  }
+
+  get poolId(): string {
+    let value = this.get("poolId");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set poolId(value: string) {
+    this.set("poolId", Value.fromString(value));
+  }
+
+  get hourStart(): i32 {
+    let value = this.get("hourStart");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set hourStart(value: i32) {
+    this.set("hourStart", Value.fromI32(value));
+  }
+
+  get volumeUsd(): BigDecimal {
+    let value = this.get("volumeUsd");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigDecimal();
+    }
+  }
+
+  set volumeUsd(value: BigDecimal) {
+    this.set("volumeUsd", Value.fromBigDecimal(value));
+  }
+}
+
+export class PoolLpPriceHour extends Entity {
+  constructor(id: string) {
+    super();
+    this.set("id", Value.fromString(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save PoolLpPriceHour entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.STRING,
+        `Entities of type PoolLpPriceHour must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("PoolLpPriceHour", id.toString(), this);
+    }
+  }
+
+  static loadInBlock(id: string): PoolLpPriceHour | null {
+    return changetype<PoolLpPriceHour | null>(
+      store.get_in_block("PoolLpPriceHour", id),
+    );
+  }
+
+  static load(id: string): PoolLpPriceHour | null {
+    return changetype<PoolLpPriceHour | null>(store.get("PoolLpPriceHour", id));
+  }
+
+  get id(): string {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set id(value: string) {
+    this.set("id", Value.fromString(value));
+  }
+
+  get poolId(): string {
+    let value = this.get("poolId");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set poolId(value: string) {
+    this.set("poolId", Value.fromString(value));
+  }
+
+  get hourStart(): i32 {
+    let value = this.get("hourStart");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set hourStart(value: i32) {
+    this.set("hourStart", Value.fromI32(value));
+  }
+
+  get lpPriceUsd(): BigDecimal {
+    let value = this.get("lpPriceUsd");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigDecimal();
+    }
+  }
+
+  set lpPriceUsd(value: BigDecimal) {
+    this.set("lpPriceUsd", Value.fromBigDecimal(value));
+  }
+}
+
+export class PoolValueHour extends Entity {
+  constructor(id: string) {
+    super();
+    this.set("id", Value.fromString(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save PoolValueHour entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.STRING,
+        `Entities of type PoolValueHour must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("PoolValueHour", id.toString(), this);
+    }
+  }
+
+  static loadInBlock(id: string): PoolValueHour | null {
+    return changetype<PoolValueHour | null>(
+      store.get_in_block("PoolValueHour", id),
+    );
+  }
+
+  static load(id: string): PoolValueHour | null {
+    return changetype<PoolValueHour | null>(store.get("PoolValueHour", id));
+  }
+
+  get id(): string {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set id(value: string) {
+    this.set("id", Value.fromString(value));
+  }
+
+  get poolId(): string {
+    let value = this.get("poolId");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set poolId(value: string) {
+    this.set("poolId", Value.fromString(value));
+  }
+
+  get hourStart(): i32 {
+    let value = this.get("hourStart");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set hourStart(value: i32) {
+    this.set("hourStart", Value.fromI32(value));
+  }
+
+  get poolValueUsd(): BigDecimal {
+    let value = this.get("poolValueUsd");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigDecimal();
+    }
+  }
+
+  set poolValueUsd(value: BigDecimal) {
+    this.set("poolValueUsd", Value.fromBigDecimal(value));
+  }
+}
+
+export class PoolLpKlineDay extends Entity {
+  constructor(id: string) {
+    super();
+    this.set("id", Value.fromString(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save PoolLpKlineDay entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.STRING,
+        `Entities of type PoolLpKlineDay must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("PoolLpKlineDay", id.toString(), this);
+    }
+  }
+
+  static loadInBlock(id: string): PoolLpKlineDay | null {
+    return changetype<PoolLpKlineDay | null>(
+      store.get_in_block("PoolLpKlineDay", id),
+    );
+  }
+
+  static load(id: string): PoolLpKlineDay | null {
+    return changetype<PoolLpKlineDay | null>(store.get("PoolLpKlineDay", id));
+  }
+
+  get id(): string {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set id(value: string) {
+    this.set("id", Value.fromString(value));
+  }
+
+  get poolId(): string {
+    let value = this.get("poolId");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set poolId(value: string) {
+    this.set("poolId", Value.fromString(value));
+  }
+
+  get dayStart(): i32 {
+    let value = this.get("dayStart");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set dayStart(value: i32) {
+    this.set("dayStart", Value.fromI32(value));
+  }
+
+  get poolValueUsd(): BigDecimal {
+    let value = this.get("poolValueUsd");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigDecimal();
+    }
+  }
+
+  set poolValueUsd(value: BigDecimal) {
+    this.set("poolValueUsd", Value.fromBigDecimal(value));
   }
 }
 
@@ -1575,6 +2023,24 @@ export class SwapLoader extends Entity {
   load(): Swap[] {
     let value = store.loadRelated(this._entity, this._id, this._field);
     return changetype<Swap[]>(value);
+  }
+}
+
+export class PoolLpKlineDayLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): PoolLpKlineDay[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<PoolLpKlineDay[]>(value);
   }
 }
 

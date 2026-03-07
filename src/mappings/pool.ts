@@ -1,4 +1,4 @@
-import { BigInt, Address, Bytes, store, log } from '@graphprotocol/graph-ts'
+import { BigInt, Address, Bytes, store, log, dataSource, ethereum } from '@graphprotocol/graph-ts'
 import { LOG_CALL, LOG_JOIN, LOG_EXIT, LOG_SWAP, Transfer, GulpCall } from '../types/templates/Pool/Pool'
 import { Pool as BPool } from '../types/templates/Pool/Pool'
 import {
@@ -21,7 +21,10 @@ import {
   ZERO_BD,
   decrPoolCount,
   createUserEntity,
-  normalizeUserAddress
+  normalizeUserAddress,
+  refreshCrpPoolLiquidityFromPriceReader,
+  addLpVolumeAndUpdateApr,
+  ensurePoolTokensFromChain
 } from './helpers'
 import { 
   ConfigurableRightsPool, 
@@ -32,6 +35,8 @@ import {
   LogCall,
   CapChanged
 } from '../types/Factory/ConfigurableRightsPool'
+
+const LP_REFRESH_INTERVAL_BLOCKS = BigInt.fromI32(250)
 
 /************************************
  ********** Pool Controls ***********
@@ -69,7 +74,6 @@ export function handleSetCrpController(event: OwnershipTransferred): void {
   let pool = Pool.load(getCrpUnderlyingPool(crp)!)!
 
   if(pool != null) {
-
     pool.crpController = normalizeUserAddress(event.params.newOwner)
     pool.save()
 
@@ -115,11 +119,18 @@ export function handleFinalize(event: LOG_CALL): void {
     pool.symbol = 'DPT'
     pool.publicSwap = true
     
-    let bpool = BPool.bind(Address.fromString(poolId))
-    let totalSupplyCall = bpool.try_totalSupply()
-    let balance = ZERO_BD
-    if (!totalSupplyCall.reverted) {
-      balance = bigIntToDecimal(totalSupplyCall.value, 18)
+    let balance = pool.totalShares
+    // For CRP-created pools, finalize caller is the CRP contract.
+    let crp = ConfigurableRightsPool.bind(event.params.caller)
+    let crpBPoolCall = crp.try_bPool()
+    if (!crpBPoolCall.reverted) {
+      let crpBPoolId = crpBPoolCall.value.toHexString()
+      if (crpBPoolId == poolId) {
+        let crpTotalSupplyCall = crp.try_totalSupply()
+        if (!crpTotalSupplyCall.reverted) {
+          balance = bigIntToDecimal(crpTotalSupplyCall.value, 18)
+        }
+      }
     }
 
     pool.totalShares = balance
@@ -137,6 +148,10 @@ export function handleFinalize(event: LOG_CALL): void {
       poolShare.userBalance = balance
       poolShare.save()
     }
+
+    ensurePoolTokensFromChain(poolId)
+    refreshCrpPoolLiquidityFromPriceReader(poolId)
+    addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), ZERO_BD)
 
     let factory = Tidalx.load('1')
     if(factory == null) return
@@ -240,6 +255,9 @@ export function handleRebindSmart(event: LOG_CALL): void {
 
     pool.save()
     updatePoolLiquidity(poolId)
+    ensurePoolTokensFromChain(poolId)
+    refreshCrpPoolLiquidityFromPriceReader(poolId)
+    addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), ZERO_BD)
     saveTransaction(event, 'rebindSmart')
   }
 }
@@ -308,6 +326,9 @@ export function handleRebind(event: LOG_CALL): void {
   pool.save()
 
   updatePoolLiquidity(poolId)
+  ensurePoolTokensFromChain(poolId)
+  refreshCrpPoolLiquidityFromPriceReader(poolId)
+  addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), ZERO_BD)
   saveTransaction(event, 'rebind')
 }
 
@@ -335,6 +356,9 @@ export function handleUnbind(event: LOG_CALL): void {
     store.remove('PoolToken', poolTokenId)
 
     updatePoolLiquidity(poolId)
+    ensurePoolTokensFromChain(poolId)
+    refreshCrpPoolLiquidityFromPriceReader(poolId)
+    addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), ZERO_BD)
     saveTransaction(event, 'unbind')
   }
 }
@@ -389,6 +413,9 @@ export function handleJoinPool(event: LOG_JOIN): void {
     }
 
     updatePoolLiquidity(poolId)
+    ensurePoolTokensFromChain(poolId)
+    refreshCrpPoolLiquidityFromPriceReader(poolId)
+    addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), ZERO_BD)
     saveTransaction(event, 'join')
   }
 }
@@ -419,6 +446,9 @@ export function handleExitPool(event: LOG_EXIT): void {
     pool.save()
 
     updatePoolLiquidity(poolId)
+    ensurePoolTokensFromChain(poolId)
+    refreshCrpPoolLiquidityFromPriceReader(poolId)
+    addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), ZERO_BD)
     saveTransaction(event, 'exit')
   }
 }
@@ -429,7 +459,6 @@ export function handleSmartJoinPool(event: LogJoin): void {
   let pool = Pool.load(poolId)
 
   if(pool != null) {
-
     let address = event.params.tokenIn.toHex()
     let poolTypeId = poolId.concat('-').concat(address.toString())
     let poolType = PoolToken.load(poolTypeId)
@@ -447,6 +476,9 @@ export function handleSmartJoinPool(event: LogJoin): void {
 
     pool.save()
     updatePoolLiquidity(poolId)
+    ensurePoolTokensFromChain(poolId)
+    refreshCrpPoolLiquidityFromPriceReader(poolId)
+    addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), ZERO_BD)
   
   }
 }
@@ -457,7 +489,6 @@ export function handleSmartExitPool(event: LogExit): void {
   let pool = Pool.load(poolId)
 
   if(pool != null) {
-
     let address = event.params.tokenOut.toHex()
     let poolTypeId = poolId.concat('-').concat(address.toString())
     let poolType = PoolToken.load(poolTypeId)
@@ -473,6 +504,9 @@ export function handleSmartExitPool(event: LogExit): void {
 
     pool.save()
     updatePoolLiquidity(poolId)
+    ensurePoolTokensFromChain(poolId)
+    refreshCrpPoolLiquidityFromPriceReader(poolId)
+    addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), ZERO_BD)
  
   }
 }
@@ -483,7 +517,6 @@ export function handleShareJoinPool(event: LogCall): void {
   let pool = Pool.load(poolId)
 
   if(pool != null) {
-
     let callData = event.params.data.toHexString()
     let splitString = callData.split("0x34e7a19f")
     if (splitString.length < 2) return
@@ -493,6 +526,9 @@ export function handleShareJoinPool(event: LogCall): void {
     updatePoolLiquidity(poolId)
     saveTransaction(event, 'LogCallJoinPool', poolId, '', ZERO_BD, ZERO_BD, lpTokenHex)
     pool.save()
+    ensurePoolTokensFromChain(poolId)
+    refreshCrpPoolLiquidityFromPriceReader(poolId)
+    addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), lpTokenHex)
 
   }
 }
@@ -512,6 +548,9 @@ export function handleShareExitPool(event: LogCall): void {
     updatePoolLiquidity(poolId)
     saveTransaction(event, 'LogCallExitPool', poolId, '', ZERO_BD, ZERO_BD, lpTokenHex)
     pool.save()
+    ensurePoolTokensFromChain(poolId)
+    refreshCrpPoolLiquidityFromPriceReader(poolId)
+    addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), lpTokenHex)
   }
 }
 
@@ -532,6 +571,9 @@ export function handleShareExitPoolWithSig(event: LogCall): void {
     updatePoolLiquidity(poolId)
     saveTransaction(event, 'LogCallExitPoolWithSig', poolId, '', ZERO_BD, ZERO_BD, lpTokenHex)
     pool.save()
+    ensurePoolTokensFromChain(poolId)
+    refreshCrpPoolLiquidityFromPriceReader(poolId)
+    addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), lpTokenHex)
   }
 }
 
@@ -609,6 +651,13 @@ export function handleSmartTransfer(event: SmartPoolTransfer): void {
     }
 
     pool.save()
+
+    // Ensure token list exists for pools created before rebind events are observed.
+    ensurePoolTokensFromChain(poolId)
+    // Refresh CRP liquidity with PriceReader and update LP metrics (volume/APR).
+    refreshCrpPoolLiquidityFromPriceReader(poolId)
+    let lpAmount = bigIntToDecimal(event.params.value, 18)
+    addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), lpAmount)
   }
 }
 
@@ -680,6 +729,11 @@ export function handleSwap(event: LOG_SWAP): void {
   pool.swapsCount = pool.swapsCount.plus(BigInt.fromI32(1))
   pool.save()
 
+  // Swap also changes LP intrinsic price; refresh chart/APR even without LP mint/burn.
+  ensurePoolTokensFromChain(poolId)
+  refreshCrpPoolLiquidityFromPriceReader(poolId)
+  addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), ZERO_BD)
+
   saveTransaction(event, 'swap', poolId, event.params.tokenIn.toHex(), swap.tokenAmountIn, swap.tokenAmountOut)
 }
 
@@ -747,4 +801,26 @@ export function handleTransfer(event: Transfer): void {
   }
 
   pool.save()
+  ensurePoolTokensFromChain(poolId)
+  refreshCrpPoolLiquidityFromPriceReader(poolId)
+  addLpVolumeAndUpdateApr(poolId, event.block.timestamp.toI32(), amount)
+}
+
+export function handlePoolBlock(block: ethereum.Block): void {
+  let poolId = dataSource.address().toHexString()
+  let pool = Pool.load(poolId)
+  if (pool == null) return
+  if (!pool.active) return
+
+  if (block.number.lt(pool.lpLastRefreshBlock.plus(LP_REFRESH_INTERVAL_BLOCKS))) return
+
+  ensurePoolTokensFromChain(poolId)
+  refreshCrpPoolLiquidityFromPriceReader(poolId)
+  addLpVolumeAndUpdateApr(poolId, block.timestamp.toI32(), ZERO_BD)
+
+  pool = Pool.load(poolId)
+  if (pool != null) {
+    pool.lpLastRefreshBlock = block.number
+    pool.save()
+  }
 }

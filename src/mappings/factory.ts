@@ -1,6 +1,6 @@
 import { Address, BigInt, BigDecimal } from '@graphprotocol/graph-ts'
 import { LOG_NEW_POOL } from '../types/Factory/Factory'
-import { Tidalx, Pool } from '../types/schema'
+import { Tidalx, Pool, PoolCrpRef } from '../types/schema'
 import { Pool as PoolContract, CrpController as CrpControllerContract } from '../types/templates'
 import {
   ZERO_BD,
@@ -66,6 +66,11 @@ export function handleNewPool(event: LOG_NEW_POOL): void {
   pool.totalSwapVolume = ZERO_BD
   pool.totalSwapFee = ZERO_BD
   pool.liquidity = ZERO_BD
+  pool.lpVolume24h = ZERO_BD
+  pool.lpFee24h = ZERO_BD
+  pool.lpApr = ZERO_BD
+  pool.lpAprWindow = 24
+  pool.lpLastRefreshBlock = BigInt.fromI32(0)
   pool.createTime = event.block.timestamp.toI32()
   pool.tokensCount = BigInt.fromI32(0)
   pool.holdersCount = BigInt.fromI32(0)
@@ -77,6 +82,10 @@ export function handleNewPool(event: LOG_NEW_POOL): void {
   pool.tokensOriginalList = []
   pool.tx = event.transaction.hash
   pool.save()
+
+  let poolCrpRef = new PoolCrpRef(pool.id)
+  poolCrpRef.crp = event.params.caller
+  poolCrpRef.save()
 
   factory.poolCount = factory.poolCount + 1
   factory.save()

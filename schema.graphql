@@ -24,13 +24,18 @@ type Pool @entity {
     # CRP / ETF config
     cap: BigInt                                         # Maximum supply if any (for CRP)
     active: Boolean!                                    # isActive
-    managerFee: BigInt                                  # managerFee Fees
+    managerFee: BigInt!                                 # managerFee Fees
     swapFee: BigDecimal!
     totalWeight: BigDecimal!
     totalShares: BigDecimal!                            # Total pool token shares
     totalSwapVolume: BigDecimal!                        # Total swap volume in USD
     totalSwapFee: BigDecimal!                           # Total swap fee in USD
     liquidity: BigDecimal!                              # Pool liquidity value in USD
+    lpVolume24h: BigDecimal!                            # LP token volume in last 24h (USD)
+    lpFee24h: BigDecimal!                               # LP fee income in last 24h (USD, effective window)
+    lpApr: BigDecimal!                                  # Annualized LP APR (%), fee-based
+    lpAprWindow: Int!                                   # Window used: 24/7/30 (days)
+    lpLastRefreshBlock: BigInt!                         # Last block where LP metrics were refreshed
     tokensList: [Bytes!]!                               # Temp workaround until graph supports filtering on derived field
     tokensOriginalList: [Bytes!]!
     tokens: [PoolToken!] @derivedFrom(field: "poolId")
@@ -44,6 +49,7 @@ type Pool @entity {
     factoryID: Tidalx!
     tx: Bytes                                           # Pool creation transaction id
     swaps: [Swap!] @derivedFrom(field: "poolAddress")
+    lpKlinesDay: [PoolLpKlineDay!] @derivedFrom(field: "poolId")
     # etfStatus: [EtfStatus!]                             # etf create cycle
     # etype: String                                       # etf open fund types [opened, closed]
 }
@@ -73,6 +79,39 @@ type PoolShare @entity {
     poolId: Pool!
     balance: BigDecimal!
     userBalance: BigDecimal!
+}
+
+type PoolCrpRef @entity {
+    id: ID!                                             # pool address
+    crp: Bytes!                                         # CRP contract address
+}
+
+type PoolLpVolumeHour @entity {
+    id: ID!                                             # poolId-hourIndex
+    poolId: Pool!
+    hourStart: Int!
+    volumeUsd: BigDecimal!
+}
+
+type PoolLpPriceHour @entity {
+    id: ID!                                             # poolId-hourIndex
+    poolId: Pool!
+    hourStart: Int!
+    lpPriceUsd: BigDecimal!
+}
+
+type PoolValueHour @entity {
+    id: ID!                                             # poolId-hourIndex
+    poolId: Pool!
+    hourStart: Int!
+    poolValueUsd: BigDecimal!
+}
+
+type PoolLpKlineDay @entity {
+    id: ID!                                             # poolId-dayIndex
+    poolId: Pool!
+    dayStart: Int!
+    poolValueUsd: BigDecimal!                           # Pool total value in USD at this hour
 }
 
 type User @entity {

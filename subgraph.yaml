@@ -1,0 +1,130 @@
+specVersion: 0.0.4
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum/contract
+    name: Factory
+    network: sepolia
+    source:
+      address: "0x9A4514B2b35Cd036054E394549Cf15a5B8DA1113"
+      abi: Factory
+      startBlock: 10388095
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Tidalx
+        - Pool
+      file: ./src/mappings/factory.ts
+      abis:
+        - name: Factory
+          file: ./abis/BFactory.json
+        - name: CRPFactory
+          file: ./abis/CRPFactory.json
+        - name: ConfigurableRightsPool
+          file: ./abis/ConfigurableRightsPool.json
+        - name: QProxyFactory
+          file: ./abis/QProxyFactory.json
+        - name: QProxy
+          file: ./abis/QProxy.json
+      eventHandlers:
+        - event: LOG_NEW_POOL(indexed address,indexed address)
+          handler: handleNewPool
+templates:
+  - kind: ethereum/contract
+    name: Pool
+    network: sepolia
+    source:
+      abi: Pool
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/mappings/pool.ts
+      entities:
+        - Pool
+        - Tidalx
+        - Swap
+        - PoolToken
+        - PoolShare
+        - User
+        - Transaction
+        - TokenPrice
+      abis:
+        - name: Pool
+          file: ./abis/BPool.json
+        - name: BToken
+          file: ./abis/BToken.json
+        - name: BTokenBytes
+          file: ./abis/BTokenBytes32.json
+        - name: QProxyFactory
+          file: ./abis/QProxyFactory.json
+        - name: QProxy
+          file: ./abis/QProxy.json
+      eventHandlers:
+        - event: LOG_CALL(indexed bytes4,indexed address,bytes)
+          topic0: "0x92eefe9b00000000000000000000000000000000000000000000000000000000"
+          handler: handleSetController
+        - event: LOG_CALL(indexed bytes4,indexed address,bytes)
+          topic0: "0x3fdddaa200000000000000000000000000000000000000000000000000000000"
+          handler: handleRebind
+        - event: LOG_CALL(indexed bytes4,indexed address,bytes)
+          topic0: "0xe4e1e53800000000000000000000000000000000000000000000000000000000"
+          handler: handleRebind
+        - event: LOG_CALL(indexed bytes4,indexed address,bytes)
+          topic0: "0xcbf3a56b00000000000000000000000000000000000000000000000000000000"
+          handler: handleRebindSmart
+        - event: LOG_CALL(indexed bytes4,indexed address,bytes)
+          topic0: "0xcf5e7bd300000000000000000000000000000000000000000000000000000000"
+          handler: handleUnbind
+        - event: LOG_JOIN(indexed address,indexed address,uint256)
+          handler: handleJoinPool
+        - event: LOG_EXIT(indexed address,indexed address,uint256)
+          handler: handleExitPool
+        - event: LOG_SWAP(indexed address,indexed address,indexed address,uint256,uint256)
+          handler: handleSwap
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
+      callHandlers:
+        - function: gulp(address)
+          handler: handleGulp
+  - kind: ethereum/contract
+    name: CrpController
+    network: sepolia
+    source:
+      abi: ConfigurableRightsPool
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/mappings/pool.ts
+      entities:
+        - Pool
+        - Transaction
+        - User
+      abis:
+        - name: ConfigurableRightsPool
+          file: ./abis/ConfigurableRightsPool.json
+        - name: QProxyFactory
+          file: ./abis/QProxyFactory.json
+        - name: QProxy
+          file: ./abis/QProxy.json
+      eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleSetCrpController
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleSmartTransfer
+        - event: LogJoin(indexed address,indexed address,uint256)
+          handler: handleSmartJoinPool
+        - event: LogExit(indexed address,indexed address,uint256)
+          handler: handleSmartExitPool
+        - event: LogCall(indexed bytes4,indexed address,bytes)
+          topic0: "0x34e7a19f00000000000000000000000000000000000000000000000000000000"
+          handler: handleShareJoinPool
+        - event: LogCall(indexed bytes4,indexed address,bytes)
+          topic0: "0xeaede43400000000000000000000000000000000000000000000000000000000"
+          handler: handleShareExitPool
+        - event: LogCall(indexed bytes4,indexed address,bytes)
+          topic0: "0x926afadf00000000000000000000000000000000000000000000000000000000"
+          handler: handleShareExitPoolWithSig

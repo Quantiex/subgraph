@@ -48,7 +48,7 @@ import {
     WETH = '0x0F6fEC6fadBE55c2140429B2EF3445aF474cae15'
     USD = '0x76dD2892E24259D2BD2A10BF7e4302F2D649d780'
     DAI = '0x5B835d23f6e99f65d68A401E2c06e2FFE4944fA9'
-    CRP_FACTORY = '0x5c4B2021fE482059C78e112b8FC2Bd8334a22799'
+    CRP_FACTORY = '0xaFCF9cAf2025f0Aef9bae4805a20C3a6BB9b59d4'
     QPROXY_FACTORY = '0xD96Ba1ac4f13749f456286A5ECB8C4C747762A60'
     PRICE_READER = '0x299893A941734e80e58038f0DE799BC6B63F7AB4'
     UNIV2_FACTORY = '0xD47B910F9eb72ED2B8eb565cBb9B3e0347564FAf'
@@ -418,6 +418,14 @@ import {
     let hour = timestamp / 3600
     let lpPriceNow = pool.liquidity.div(pool.totalShares)
 
+    // Bootstrap snapshot: gives a non-zero reference path even for very new pools.
+    if (pool.lpBootstrapPrice.le(ZERO_BD) || pool.lpBootstrapPoolValue.le(ZERO_BD)) {
+      pool.lpBootstrapPrice = lpPriceNow
+      pool.lpBootstrapPoolValue = pool.liquidity
+      pool.lpBootstrapTimestamp = timestamp
+      pool.save()
+    }
+
     let priceBucketId = poolId.concat('-').concat(hour.toString())
     let priceBucket = PoolLpPriceHour.load(priceBucketId)
     if (priceBucket == null) {
@@ -471,13 +479,42 @@ import {
     }
 
     if (!found) {
-      pool.lpVolume24h = ZERO_BD
-      pool.lpFee24h = ZERO_BD
-      // Keep previous non-zero APR when no valid reference point is available.
-      if (pool.lpApr.equals(ZERO_BD)) {
-        pool.lpApr = ZERO_BD
+      if (pool.lpBootstrapPrice.gt(ZERO_BD) && pool.lpBootstrapPoolValue.gt(ZERO_BD)) {
+        let diff = pool.liquidity.minus(pool.lpBootstrapPoolValue)
+        if (diff.lt(ZERO_BD)) diff = ZERO_BD.minus(diff)
+        pool.lpVolume24h = diff
+        pool.lpFee24h = ZERO_BD
+
+        let elapsedHours = (timestamp - pool.lpBootstrapTimestamp) / 3600
+        if (elapsedHours < 1) elapsedHours = 1
+        let annualBaseHours = elapsedHours
+        // Clamp very short windows to 24h-equivalent to avoid absurd APR spikes.
+        if (annualBaseHours < 24) annualBaseHours = 24
+        let annual = BigDecimal.fromString('8760').div(BigDecimal.fromString(annualBaseHours.toString()))
+        let nextApr = lpPriceNow
+          .div(pool.lpBootstrapPrice)
+          .minus(BigDecimal.fromString('1'))
+          .times(annual)
+          .times(HUNDRED_BD)
+        if (!(nextApr.equals(ZERO_BD) && pool.lpApr.notEqual(ZERO_BD))) {
+          pool.lpApr = nextApr
+        }
+
+        if (annualBaseHours <= 48) {
+          pool.lpAprWindow = 24
+        } else if (annualBaseHours <= 336) {
+          pool.lpAprWindow = 7
+        } else {
+          pool.lpAprWindow = 30
+        }
+      } else {
+        pool.lpVolume24h = ZERO_BD
+        pool.lpFee24h = ZERO_BD
+        if (pool.lpApr.equals(ZERO_BD)) {
+          pool.lpApr = ZERO_BD
+        }
+        pool.lpAprWindow = 24
       }
-      pool.lpAprWindow = 24
       pool.save()
       return
     }

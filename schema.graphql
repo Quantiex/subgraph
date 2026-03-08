@@ -36,6 +36,9 @@ type Pool @entity {
     lpApr: BigDecimal!                                  # Annualized LP APR (%), fee-based
     lpAprWindow: Int!                                   # Window used: 24/7/30 (days)
     lpLastRefreshBlock: BigInt!                         # Last block where LP metrics were refreshed
+    lpBootstrapPrice: BigDecimal!                       # First observed LP price used as fallback reference
+    lpBootstrapPoolValue: BigDecimal!                   # First observed pool value used as fallback reference
+    lpBootstrapTimestamp: Int!                          # First observed timestamp used as fallback reference
     tokensList: [Bytes!]!                               # Temp workaround until graph supports filtering on derived field
     tokensOriginalList: [Bytes!]!
     tokens: [PoolToken!] @derivedFrom(field: "poolId")

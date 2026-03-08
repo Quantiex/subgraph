@@ -10,6 +10,76 @@ import {
   BigInt,
 } from "@graphprotocol/graph-ts";
 
+export class LogExitPoolSwitchChanged extends ethereum.Event {
+  get params(): LogExitPoolSwitchChanged__Params {
+    return new LogExitPoolSwitchChanged__Params(this);
+  }
+}
+
+export class LogExitPoolSwitchChanged__Params {
+  _event: LogExitPoolSwitchChanged;
+
+  constructor(event: LogExitPoolSwitchChanged) {
+    this._event = event;
+  }
+
+  get caller(): Address {
+    return this._event.parameters[0].value.toAddress();
+  }
+
+  get enabled(): boolean {
+    return this._event.parameters[1].value.toBoolean();
+  }
+}
+
+export class LogExitPoolWithSigSwitchChanged extends ethereum.Event {
+  get params(): LogExitPoolWithSigSwitchChanged__Params {
+    return new LogExitPoolWithSigSwitchChanged__Params(this);
+  }
+}
+
+export class LogExitPoolWithSigSwitchChanged__Params {
+  _event: LogExitPoolWithSigSwitchChanged;
+
+  constructor(event: LogExitPoolWithSigSwitchChanged) {
+    this._event = event;
+  }
+
+  get caller(): Address {
+    return this._event.parameters[0].value.toAddress();
+  }
+
+  get enabled(): boolean {
+    return this._event.parameters[1].value.toBoolean();
+  }
+}
+
+export class LogExitSignerChanged extends ethereum.Event {
+  get params(): LogExitSignerChanged__Params {
+    return new LogExitSignerChanged__Params(this);
+  }
+}
+
+export class LogExitSignerChanged__Params {
+  _event: LogExitSignerChanged;
+
+  constructor(event: LogExitSignerChanged) {
+    this._event = event;
+  }
+
+  get caller(): Address {
+    return this._event.parameters[0].value.toAddress();
+  }
+
+  get oldSigner(): Address {
+    return this._event.parameters[1].value.toAddress();
+  }
+
+  get newSigner(): Address {
+    return this._event.parameters[2].value.toAddress();
+  }
+}
+
 export class LogNewCrp extends ethereum.Event {
   get params(): LogNewCrp__Params {
     return new LogNewCrp__Params(this);
@@ -28,6 +98,28 @@ export class LogNewCrp__Params {
   }
 
   get pool(): Address {
+    return this._event.parameters[1].value.toAddress();
+  }
+}
+
+export class LogOwnerChanged extends ethereum.Event {
+  get params(): LogOwnerChanged__Params {
+    return new LogOwnerChanged__Params(this);
+  }
+}
+
+export class LogOwnerChanged__Params {
+  _event: LogOwnerChanged;
+
+  constructor(event: LogOwnerChanged) {
+    this._event = event;
+  }
+
+  get oldOwner(): Address {
+    return this._event.parameters[0].value.toAddress();
+  }
+
+  get newOwner(): Address {
     return this._event.parameters[1].value.toAddress();
   }
 }
@@ -79,6 +171,71 @@ export class CRPFactory__newCrpInputRightsStruct extends ethereum.Tuple {
 export class CRPFactory extends ethereum.SmartContract {
   static bind(address: Address): CRPFactory {
     return new CRPFactory("CRPFactory", address);
+  }
+
+  getExitPoolEnabled(): boolean {
+    let result = super.call(
+      "getExitPoolEnabled",
+      "getExitPoolEnabled():(bool)",
+      [],
+    );
+
+    return result[0].toBoolean();
+  }
+
+  try_getExitPoolEnabled(): ethereum.CallResult<boolean> {
+    let result = super.tryCall(
+      "getExitPoolEnabled",
+      "getExitPoolEnabled():(bool)",
+      [],
+    );
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toBoolean());
+  }
+
+  getExitPoolWithSigEnabled(): boolean {
+    let result = super.call(
+      "getExitPoolWithSigEnabled",
+      "getExitPoolWithSigEnabled():(bool)",
+      [],
+    );
+
+    return result[0].toBoolean();
+  }
+
+  try_getExitPoolWithSigEnabled(): ethereum.CallResult<boolean> {
+    let result = super.tryCall(
+      "getExitPoolWithSigEnabled",
+      "getExitPoolWithSigEnabled():(bool)",
+      [],
+    );
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toBoolean());
+  }
+
+  getExitSigner(): Address {
+    let result = super.call("getExitSigner", "getExitSigner():(address)", []);
+
+    return result[0].toAddress();
+  }
+
+  try_getExitSigner(): ethereum.CallResult<Address> {
+    let result = super.tryCall(
+      "getExitSigner",
+      "getExitSigner():(address)",
+      [],
+    );
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toAddress());
   }
 
   getPoolList(): Array<Address> {
@@ -154,6 +311,21 @@ export class CRPFactory extends ethereum.SmartContract {
     return ethereum.CallResult.fromValue(value[0].toAddress());
   }
 
+  owner(): Address {
+    let result = super.call("owner", "owner():(address)", []);
+
+    return result[0].toAddress();
+  }
+
+  try_owner(): ethereum.CallResult<Address> {
+    let result = super.tryCall("owner", "owner():(address)", []);
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toAddress());
+  }
+
   poolList(param0: BigInt): Address {
     let result = super.call("poolList", "poolList(uint256):(address)", [
       ethereum.Value.fromUnsignedBigInt(param0),
@@ -171,6 +343,32 @@ export class CRPFactory extends ethereum.SmartContract {
     }
     let value = result.value;
     return ethereum.CallResult.fromValue(value[0].toAddress());
+  }
+}
+
+export class ConstructorCall extends ethereum.Call {
+  get inputs(): ConstructorCall__Inputs {
+    return new ConstructorCall__Inputs(this);
+  }
+
+  get outputs(): ConstructorCall__Outputs {
+    return new ConstructorCall__Outputs(this);
+  }
+}
+
+export class ConstructorCall__Inputs {
+  _call: ConstructorCall;
+
+  constructor(call: ConstructorCall) {
+    this._call = call;
+  }
+}
+
+export class ConstructorCall__Outputs {
+  _call: ConstructorCall;
+
+  constructor(call: ConstructorCall) {
+    this._call = call;
   }
 }
 
@@ -261,5 +459,125 @@ export class NewCrpCallRightsStruct extends ethereum.Tuple {
 
   get canChangeCap(): boolean {
     return this[3].toBoolean();
+  }
+}
+
+export class SetExitPoolEnabledCall extends ethereum.Call {
+  get inputs(): SetExitPoolEnabledCall__Inputs {
+    return new SetExitPoolEnabledCall__Inputs(this);
+  }
+
+  get outputs(): SetExitPoolEnabledCall__Outputs {
+    return new SetExitPoolEnabledCall__Outputs(this);
+  }
+}
+
+export class SetExitPoolEnabledCall__Inputs {
+  _call: SetExitPoolEnabledCall;
+
+  constructor(call: SetExitPoolEnabledCall) {
+    this._call = call;
+  }
+
+  get enabled(): boolean {
+    return this._call.inputValues[0].value.toBoolean();
+  }
+}
+
+export class SetExitPoolEnabledCall__Outputs {
+  _call: SetExitPoolEnabledCall;
+
+  constructor(call: SetExitPoolEnabledCall) {
+    this._call = call;
+  }
+}
+
+export class SetExitPoolWithSigEnabledCall extends ethereum.Call {
+  get inputs(): SetExitPoolWithSigEnabledCall__Inputs {
+    return new SetExitPoolWithSigEnabledCall__Inputs(this);
+  }
+
+  get outputs(): SetExitPoolWithSigEnabledCall__Outputs {
+    return new SetExitPoolWithSigEnabledCall__Outputs(this);
+  }
+}
+
+export class SetExitPoolWithSigEnabledCall__Inputs {
+  _call: SetExitPoolWithSigEnabledCall;
+
+  constructor(call: SetExitPoolWithSigEnabledCall) {
+    this._call = call;
+  }
+
+  get enabled(): boolean {
+    return this._call.inputValues[0].value.toBoolean();
+  }
+}
+
+export class SetExitPoolWithSigEnabledCall__Outputs {
+  _call: SetExitPoolWithSigEnabledCall;
+
+  constructor(call: SetExitPoolWithSigEnabledCall) {
+    this._call = call;
+  }
+}
+
+export class SetExitSignerCall extends ethereum.Call {
+  get inputs(): SetExitSignerCall__Inputs {
+    return new SetExitSignerCall__Inputs(this);
+  }
+
+  get outputs(): SetExitSignerCall__Outputs {
+    return new SetExitSignerCall__Outputs(this);
+  }
+}
+
+export class SetExitSignerCall__Inputs {
+  _call: SetExitSignerCall;
+
+  constructor(call: SetExitSignerCall) {
+    this._call = call;
+  }
+
+  get signer(): Address {
+    return this._call.inputValues[0].value.toAddress();
+  }
+}
+
+export class SetExitSignerCall__Outputs {
+  _call: SetExitSignerCall;
+
+  constructor(call: SetExitSignerCall) {
+    this._call = call;
+  }
+}
+
+export class SetOwnerCall extends ethereum.Call {
+  get inputs(): SetOwnerCall__Inputs {
+    return new SetOwnerCall__Inputs(this);
+  }
+
+  get outputs(): SetOwnerCall__Outputs {
+    return new SetOwnerCall__Outputs(this);
+  }
+}
+
+export class SetOwnerCall__Inputs {
+  _call: SetOwnerCall;
+
+  constructor(call: SetOwnerCall) {
+    this._call = call;
+  }
+
+  get newOwner(): Address {
+    return this._call.inputValues[0].value.toAddress();
+  }
+}
+
+export class SetOwnerCall__Outputs {
+  _call: SetOwnerCall;
+
+  constructor(call: SetOwnerCall) {
+    this._call = call;
   }
 }

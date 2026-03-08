@@ -500,6 +500,45 @@ export class Pool extends Entity {
     this.set("lpLastRefreshBlock", Value.fromBigInt(value));
   }
 
+  get lpBootstrapPrice(): BigDecimal {
+    let value = this.get("lpBootstrapPrice");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigDecimal();
+    }
+  }
+
+  set lpBootstrapPrice(value: BigDecimal) {
+    this.set("lpBootstrapPrice", Value.fromBigDecimal(value));
+  }
+
+  get lpBootstrapPoolValue(): BigDecimal {
+    let value = this.get("lpBootstrapPoolValue");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigDecimal();
+    }
+  }
+
+  set lpBootstrapPoolValue(value: BigDecimal) {
+    this.set("lpBootstrapPoolValue", Value.fromBigDecimal(value));
+  }
+
+  get lpBootstrapTimestamp(): i32 {
+    let value = this.get("lpBootstrapTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set lpBootstrapTimestamp(value: i32) {
+    this.set("lpBootstrapTimestamp", Value.fromI32(value));
+  }
+
   get tokensList(): Array<Bytes> {
     let value = this.get("tokensList");
     if (!value || value.kind == ValueKind.NULL) {

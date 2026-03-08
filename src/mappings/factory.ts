@@ -71,6 +71,9 @@ export function handleNewPool(event: LOG_NEW_POOL): void {
   pool.lpApr = ZERO_BD
   pool.lpAprWindow = 24
   pool.lpLastRefreshBlock = BigInt.fromI32(0)
+  pool.lpBootstrapPrice = ZERO_BD
+  pool.lpBootstrapPoolValue = ZERO_BD
+  pool.lpBootstrapTimestamp = event.block.timestamp.toI32()
   pool.createTime = event.block.timestamp.toI32()
   pool.tokensCount = BigInt.fromI32(0)
   pool.holdersCount = BigInt.fromI32(0)
